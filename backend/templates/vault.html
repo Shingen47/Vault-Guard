@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VaultGuard - Dashboard</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        
+        .password-row {
+            transition: all 0.2s ease;
+        }
+        
+        .password-row:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .modal-content {
+            animation: modalFadeIn 0.3s ease;
+        }
+        
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .progress-ring {
+            transition: stroke-dashoffset 0.5s ease;
+        }
+    </style>
+</head>
+
+<body class="gradient-bg w-full min-h-screen text-white">
+    <!-- Navigation Bar -->
+    <nav class="w-full glass-card shadow-lg sticky top-0 z-50">
+        <div class="flex justify-between items-center p-5 max-w-7xl mx-auto">
+            <!-- Logo -->
+            <a class="text-2xl font-bold transition hover:-translate-y-0.5 flex items-center gap-2" href="/">
+                <img src="{{ url_for('static', filename='images/vault.svg') }}" alt="VaultGuard Logo" class="h-8 w-8">
+                <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">VaultGuard</span>
+            </a>
+
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex gap-10">
+                <!-- Menu items can be added here -->
+            </div>
+
+            <!-- Desktop Icons & Logout -->
+            <div class="hidden md:flex gap-5">
+                <a class="text-red-400 hover:text-red-300 transition hover:-translate-y-0.5 flex items-center gap-1" href="/logout">
+                    <i class="fa fa-right-from-bracket"></i> Logout
+                </a>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button id="menu-toggle" class="md:hidden text-white focus:outline-none text-2xl">
+                <i class="fa fa-bars"></i>
+            </button>
+        </div>
+
+        <!-- Mobile Dropdown Menu -->
+        <div id="mobile-menu"
+            class="fixed top-0 right-0 w-2/3 h-full glass-card py-5 space-y-5 transform translate-x-full transition-transform duration-300 ease-in-out md:hidden flex flex-col items-center shadow-lg z-50">
+            <a class="text-red-400 hover:text-red-300 transition hover:-translate-y-0.5 flex items-center gap-1" href="/logout">
+                <i class="fa fa-right-from-bracket"></i> Logout
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto w-full max-w-7xl px-4 py-8">
+        <!-- Welcome Section -->
+        <div class="mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Welcome Message -->
+                <div class="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
+                    <h1 class="text-2xl font-bold text-white mb-2">Welcome to VaultGuard</h1>
+                    <p class="text-slate-400">Your secure password manager</p>
+                </div>
+                
+                <!-- Password Health -->
+                <div class="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
+                    <h2 class="text-lg font-semibold text-white mb-6">Password Health</h2>
+                    <div class="grid grid-cols-2 gap-6">
+                        <!-- Overall Strength -->
+                        <div class="flex flex-col items-center">
+                            <h3 class="text-sm font-medium mb-3 text-slate-300">Overall Strength</h3>
+                            <div class="relative w-20 h-20">
+                                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="10" fill="transparent" />
+                                    <circle id="strength-circle" class="progress-ring" cx="50" cy="50" r="40" stroke-width="10" fill="transparent"
+                                        stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" />
+                                </svg>
+                                <span id="strength-text" class="absolute inset-0 flex items-center justify-center text-white text-xl font-bold">0%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Weak Passwords -->
+                        <div class="flex flex-col items-center">
+                            <h3 class="text-sm font-medium mb-3 text-slate-300">Weak Passwords</h3>
+                            <div class="relative w-20 h-20">
+                                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="10" fill="transparent" />
+                                    <circle id="weak-circle" class="progress-ring" cx="50" cy="50" r="40" stroke-width="10" fill="transparent"
+                                        stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" />
+                                </svg>
+                                <span id="weak-text" class="absolute inset-0 flex items-center justify-center text-white text-xl font-bold">0</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Duplicate Passwords -->
+                        <div class="flex flex-col items-center">
+                            <h3 class="text-sm font-medium mb-3 text-slate-300">Duplicates</h3>
+                            <div class="relative w-20 h-20">
+                                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="10" fill="transparent" />
+                                    <circle id="duplicate-circle" class="progress-ring" cx="50" cy="50" r="40" stroke-width="10" fill="transparent"
+                                        stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" />
+                                </svg>
+                                <span id="duplicate-text" class="absolute inset-0 flex items-center justify-center text-white text-xl font-bold">0</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Total Passwords -->
+                        <div class="flex flex-col items-center">
+                            <h3 class="text-sm font-medium mb-3 text-slate-300">Total</h3>
+                            <div class="relative w-20 h-20">
+                                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="10" fill="transparent" />
+                                    <circle id="total-circle" class="progress-ring" cx="50" cy="50" r="40" stroke-width="10" fill="transparent"
+                                        stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" />
+                                </svg>
+                                <span id="total-text" class="absolute inset-0 flex items-center justify-center text-white text-xl font-bold">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="mt-6 bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
+                <h2 class="text-lg font-semibold text-white mb-4">Quick Actions</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button onclick="openPasswordGenerator()" class="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fa fa-key"></i>
+                        <span>Generate Password</span>
+                    </button>
+                    <button onclick="runSecurityAudit()" class="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fa fa-shield"></i>
+                        <span>Security Audit</span>
+                    </button>
+                    <button onclick="openBrowserExtension()" class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fa fa-chrome"></i>
+                        <span>Browser Extension</span>
+                    </button>
+                    <button onclick="openMobileApp()" class="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fa fa-mobile"></i>
+                        <span>Mobile App</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Password Section -->
+        <div id="passwords-section" class="w-full mt-12">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Your Passwords</h3>
+                <div class="flex gap-3">
+                    <button onclick="openPasswordGenerator()" class="btn-primary p-3 rounded-full" title="Generate Password">
+                        <i class="fa fa-key"></i>
+                    </button>
+                    <button onclick="openAddModal()" class="btn-primary p-3 rounded-full" title="Add Password">
+                        <i class="fa fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="flex gap-2 mb-4 overflow-x-auto pb-2">
+                <button onclick="filterByCategory('all')" class="category-btn active px-4 py-2 rounded-lg bg-slate-700 text-white">
+                    All
+                </button>
+                <button onclick="filterByCategory('social')" class="category-btn px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400">
+                    Social
+                </button>
+                <button onclick="filterByCategory('finance')" class="category-btn px-4 py-2 rounded-lg bg-green-500/20 text-green-400">
+                    Finance
+                </button>
+                <button onclick="filterByCategory('work')" class="category-btn px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400">
+                    Work
+                </button>
+                <button onclick="filterByCategory('personal')" class="category-btn px-4 py-2 rounded-lg bg-orange-500/20 text-orange-400">
+                    Personal
+                </button>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl overflow-hidden">
+                <div class="flex mb-6 justify-center w-full md:w-1/2 relative mx-auto">
+                    <input class="bg-slate-800 outline-none border border-slate-700 w-full px-4 py-3 rounded-lg pr-12 focus:border-indigo-500 transition"
+                        type="text" name="search" id="search-bar" placeholder="Search Passwords"
+                        onkeyup="searchPassword()">
+
+                    <!-- Button inside the input field -->
+                    <button onclick="searchPassword()"
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-xl focus:outline-none hover:text-indigo-400 transition">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+                
+                {% if passwords|length > 0 %}
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-slate-800 text-white">
+                                <th class="px-4 py-3 text-left">#</th>
+                                <th class="px-4 py-3 text-left">Website</th>
+                                <th class="px-4 py-3 text-left">Username</th>
+                                <th class="px-4 py-3 text-left">Password</th>
+                                <th class="px-4 py-3 text-left">Category</th>
+                                <th class="px-4 py-3 text-left">Strength</th>
+                                <th class="px-4 py-3 text-left">Last Changed</th>
+                                <th class="px-4 py-3 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="password-table-body">
+                            {% for password in passwords %}
+                            <tr class="password-row bg-slate-700/50 text-white hover:bg-slate-700/70 transition">
+                                <td class="px-4 py-3">{{ loop.index }}</td>
+                                <td class="px-4 py-3">{{ password.website }}</td>
+                                <td class="px-4 py-3">{{ password.username }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-between">
+                                        <span id="password-{{ loop.index }}">********</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-slate-300">{{ password.category }}</td>
+                                <td class="px-4 py-3 text-slate-300">{{ password.strength }}</td>
+                                <td class="px-4 py-3 text-slate-300">{{password.updatedAt}}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <div class="flex gap-3">
+                                        <button
+                                            onclick="togglePassword('{{ password.website }}', 'password-{{ loop.index }}', this)"
+                                            class="text-slate-300 hover:text-indigo-400 transition">
+                                            <i class="fa fa-eye" aria-hidden="true"></i>
+                                        </button>
+                                        <button onclick="copyPassword('password-{{ loop.index }}')"
+                                            class="text-slate-300 hover:text-indigo-400 transition">
+                                            <i class="fa fa-clone" aria-hidden="true"></i>
+                                        </button>
+                                        <button
+                                            onclick="openEditModal('{{ password.website }}', '{{ password.username }}')"
+                                            class="text-slate-300 hover:text-indigo-400 transition">
+                                            <i class="fa fa-edit" aria-hidden="true"></i>
+                                        </button>
+                                        <button onclick="openDeleteModal('{{password.website}}')"
+                                            class="text-slate-300 hover:text-red-400 transition">
+                                            <i class="fa fa-trash" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="w-full flex flex-col items-center justify-center py-12">
+                    <i class="fa fa-lock-open text-5xl text-indigo-400 mb-4"></i>
+                    <h3 class="text-2xl text-indigo-300 font-medium">No saved passwords!</h3>
+                    <p class="text-slate-400 mt-2">Add your first password to get started</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Add Password Modal -->
+        <div id="add-modal" class="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden z-50">
+            <div class="glass-card p-8 rounded-xl shadow-xl w-96 modal-content">
+                <h2 class="text-2xl font-bold text-white mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Add Password</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="add-website" class="block text-sm font-medium text-slate-300 mb-1">Website</label>
+                        <input id="add-website" type="text"
+                            class="p-3 border border-slate-700 bg-slate-800 text-white rounded-lg w-full focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" 
+                            placeholder="example.com" />
+                    </div>
+                    <div>
+                        <label for="add-username" class="block text-sm font-medium text-slate-300 mb-1">Username</label>
+                        <input id="add-username" type="text"
+                            class="p-3 border border-slate-700 bg-slate-800 text-white rounded-lg w-full focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                            placeholder="username@example.com" />
+                    </div>
+                    <div>
+                        <label for="add-password" class="block text-sm font-medium text-slate-300 mb-1">Password</label>
+                        <input id="add-password" type="password"
+                            class="p-3 border border-slate-700 bg-slate-800 text-white rounded-lg w-full focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                            placeholder="••••••••" />
+                    </div>
+                    <div>
+                        <label for="add-category" class="block text-sm font-medium text-slate-300 mb-1">Category</label>
+                        <select id="add-category" class="p-3 border border-slate-700 bg-slate-800 text-white rounded-lg w-full focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                            <option value="social">Social</option>
+                            <option value="finance">Finance</option>
+                            <option value="work">Work</option>
+                            <option value="personal">Personal</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-between mt-6">
+                    <button onclick="closeAddModal()"
+                        class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-600 transition">
+                        Cancel
+                    </button>
+                    <button onclick="submitAddPassword()"
+                        class="btn-primary px-4 py-2 rounded-lg">
+                        Add
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enter Master Password Modal -->
+        <div id="master-password-modal" class="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden z-50">
+            <div class="glass-card p-8 rounded-xl shadow-xl w-96 modal-content">
+                <h2 class="text-2xl font-bold text-white mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Enter Master Password</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="master-password" class="block text-sm font-medium text-slate-300 mb-1">Password</label>
+                        <input id="master-password" type="password"
+                            class="p-3 border border-slate-700 bg-slate-800 text-white rounded-lg w-full focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                            placeholder="••••••••" />
+                    </div>
+                </div>
+                <div class="flex justify-between mt-6">
+                    <button onclick="closeMasterPasswordModal()"
+                        class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-600 transition">
+                        Cancel
+                    </button>
+                    <button onclick="submitAddPassword()"
+                        class="btn-primary px-4 py-2 rounded-lg">
+                        Submit
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Password Modal -->
+        <div id="edit-modal" class="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden z-50">
+            <div class="glass-card p-8 rounded-xl shadow-xl w-96 modal-content">
+                <h2 class="text-2xl font-bold text-white mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Edit Password</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="edit-website" class="block text-sm font-medium text-slate-300 mb-1">Website</label>
+                        <input id="edit-website" type="text"
+                            class="p-3 border border-slate-700 bg-slate-800 text-white rounded-lg w-full disabled:bg-slate-900 disabled:text-slate-500" 
+                            readonly disabled/>
+                    </div>
+                    <div>
+                        <label for="edit-username" class="block text-sm font-medium text-slate-300 mb-1">Username</label>
+                        <input id="edit-username" type="text"
+                            class="p-3 border border-slate-700 bg-slate-800 text-white rounded-lg w-full focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                            placeholder="New Username" />
+                    </div>
+                    <div>
+                        <label for="edit-password" class="block text-sm font-medium text-slate-300 mb-1">Password</label>
+                        <input id="edit-password" type="password"
+                            class="p-3 border border-slate-700 bg-slate-800 text-white rounded-lg w-full focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                            placeholder="New Password" />
+                    </div>
+                </div>
+                <div class="flex justify-between mt-6">
+                    <button onclick="closeEditModal()"
+                        class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-600 transition">
+                        Cancel
+                    </button>
+                    <button onclick="submitEditPassword()"
+                        class="btn-primary px-4 py-2 rounded-lg">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div id="delete-modal" class="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden z-50">
+            <div class="glass-card p-8 rounded-xl shadow-xl w-96 modal-content text-center">
+                <div class="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa fa-exclamation-triangle text-3xl text-red-400"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2">Confirm Deletion</h2>
+                <p class="text-slate-300 mb-6">Are you sure you want to delete <span id="delete-website-name"
+                        class="font-bold text-red-400"></span>?</p>
+                <div class="flex justify-between mt-6">
+                    <button onclick="closeDeleteModal()"
+                        class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-600 transition">
+                        Cancel
+                    </button>
+                    <button id="confirm-delete-btn" 
+                        class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Password Generator Modal -->
+        <div id="password-generator-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="glass-card p-8 rounded-xl w-96 modal-content">
+                <h3 class="text-xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Password Generator</h3>
+                
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-slate-300">Password Length:</label>
+                        <input type="number" id="password-length" value="16" min="8" max="64" 
+                            class="w-20 p-2 border border-slate-700 bg-slate-800 text-white rounded-lg">
+                    </div>
+                    
+                    <div class="space-y-3 mt-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="include-uppercase" checked class="form-checkbox text-indigo-500">
+                            <span class="ml-2 text-slate-300">Include Uppercase Letters</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="include-lowercase" checked class="form-checkbox text-indigo-500">
+                            <span class="ml-2 text-slate-300">Include Lowercase Letters</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="include-numbers" checked class="form-checkbox text-indigo-500">
+                            <span class="ml-2 text-slate-300">Include Numbers</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="include-special" checked class="form-checkbox text-indigo-500">
+                            <span class="ml-2 text-slate-300">Include Special Characters</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-slate-300">Generated Password:</label>
+                        <button onclick="copyGeneratedPassword()" class="text-slate-400 hover:text-indigo-400 transition">
+                            <i class="fa fa-copy"></i>
+                        </button>
+                    </div>
+                    <input type="text" id="generated-password" readonly
+                        class="w-full p-3 border border-slate-700 bg-slate-800 text-white rounded-lg">
+                    
+                    <!-- Password Strength Meter -->
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-slate-300">Password Strength:</span>
+                            <span id="strength-label" class="text-indigo-400">Strong</span>
+                        </div>
+                        <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                            <div id="strength-meter" class="h-full bg-indigo-500 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <ul id="strength-feedback" class="mt-2 text-sm text-slate-400 space-y-1"></ul>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3">
+                    <button onclick="generateNewPassword()" class="btn-primary px-6 py-2 rounded-lg">
+                        Generate New
+                    </button>
+                    <button onclick="closePasswordGenerator()" class="px-6 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 transition">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2FA Setup Modal -->
+        <div id="setup-2fa-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="glass-card p-8 rounded-xl w-[400px] modal-content">
+                <h3 class="text-xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
+                    Setup Two-Factor Authentication
+                </h3>
+                <div class="space-y-4">
+                    <p class="text-gray-300">Scan this QR code with your authenticator app:</p>
+                    <div class="flex justify-center">
+                        <img id="qr-code" src="" alt="2FA QR Code" class="w-48 h-48">
+                    </div>
+                    <p class="text-gray-300">Or enter this code manually: <span id="secret-key" class="font-mono"></span></p>
+                    <div class="space-y-2">
+                        <input type="text" id="verification-code" placeholder="Enter verification code" 
+                            class="w-full p-2 rounded bg-slate-800 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                        <div class="flex gap-3">
+                            <button onclick="close2FAModal()" class="w-full py-2 rounded-lg border border-slate-600 hover:bg-slate-700 transition">
+                                Cancel
+                            </button>
+                            <button onclick="verify2FA()" class="btn-primary w-full py-2 rounded-lg">
+                                Verify and Enable 2FA
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Password History Modal -->
+        <div id="password-history-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="glass-card p-8 rounded-xl w-[600px] modal-content">
+                <h3 class="text-xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Password History</h3>
+                
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-white mb-2" id="history-website"></h4>
+                    <div class="space-y-4" id="history-list">
+                        <!-- Password history entries will be added here -->
+                    </div>
+                </div>
+                
+                <div class="flex justify-end">
+                    <button onclick="closePasswordHistory()" 
+                        class="px-6 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 transition">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Audit Modal -->
+        <div id="security-audit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="glass-card p-8 rounded-xl w-[600px] modal-content">
+                <h3 class="text-xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Security Audit Results</h3>
+                
+                <div class="space-y-6">
+                    <!-- Overall Score -->
+                    <div class="text-center">
+                        <div class="text-4xl font-bold text-indigo-400 mb-2" id="audit-score">0</div>
+                        <div class="text-slate-300">Security Score</div>
+                    </div>
+                    
+                    <!-- Issues List -->
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold text-white">Security Issues</h4>
+                        <div id="audit-issues" class="space-y-3">
+                            <!-- Issues will be added here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Recommendations -->
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold text-white">Recommendations</h4>
+                        <div id="audit-recommendations" class="space-y-3">
+                            <!-- Recommendations will be added here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end mt-6">
+                    <button onclick="closeSecurityAudit()" 
+                        class="px-6 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 transition">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Browser Extension Modal -->
+        <div id="browser-extension-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="glass-card p-8 rounded-xl w-[500px] modal-content">
+                <h3 class="text-xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Browser Extension</h3>
+                
+                <div class="space-y-6">
+                    <div class="text-center">
+                        <img src="{{ url_for('static', filename='images/extension-qr.png') }}" alt="Extension QR Code" class="w-48 h-48 mx-auto mb-4">
+                        <p class="text-slate-300">Scan to install the VaultGuard browser extension</p>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold text-white">Features</h4>
+                        <ul class="space-y-2 text-slate-300">
+                            <li class="flex items-center gap-2">
+                                <i class="fa fa-check text-green-400"></i>
+                                Auto-fill passwords
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fa fa-check text-green-400"></i>
+                                Save new passwords
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fa fa-check text-green-400"></i>
+                                Quick access to vault
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fa fa-check text-green-400"></i>
+                                Secure password capture
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="flex justify-center gap-4">
+                        <a href="#" class="btn-primary px-6 py-2 rounded-lg flex items-center gap-2">
+                            <i class="fab fa-chrome"></i> Chrome
+                        </a>
+                        <a href="#" class="btn-primary px-6 py-2 rounded-lg flex items-center gap-2">
+                            <i class="fab fa-firefox"></i> Firefox
+                        </a>
+                        <a href="#" class="btn-primary px-6 py-2 rounded-lg flex items-center gap-2">
+                            <i class="fab fa-edge"></i> Edge
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end mt-6">
+                    <button onclick="closeBrowserExtension()" 
+                        class="px-6 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 transition">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile App Modal -->
+        <div id="mobile-app-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="glass-card p-8 rounded-xl w-[500px] modal-content">
+                <h3 class="text-xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Mobile App</h3>
+                
+                <div class="space-y-6">
+                    <div class="text-center">
+                        <img src="{{ url_for('static', filename='images/app-qr.png') }}" alt="App QR Code" class="w-48 h-48 mx-auto mb-4">
+                        <p class="text-slate-300">Scan to download the VaultGuard mobile app</p>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold text-white">Features</h4>
+                        <ul class="space-y-2 text-slate-300">
+                            <li class="flex items-center gap-2">
+                                <i class="fa fa-check text-green-400"></i>
+                                Sync across devices
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fa fa-check text-green-400"></i>
+                                Biometric authentication
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fa fa-check text-green-400"></i>
+                                Offline access
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fa fa-check text-green-400"></i>
+                                QR code login
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="flex justify-center gap-4">
+                        <a href="#" class="btn-primary px-6 py-2 rounded-lg flex items-center gap-2">
+                            <i class="fab fa-apple"></i> App Store
+                        </a>
+                        <a href="#" class="btn-primary px-6 py-2 rounded-lg flex items-center gap-2">
+                            <i class="fab fa-google-play"></i> Play Store
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end mt-6">
+                    <button onclick="closeMobileApp()" 
+                        class="px-6 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 transition">Close</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="../static/script.js"></script>
+    <script>
+        // 2FA Functions
+        async function setup2FA() {
+            try {
+                const response = await fetch('/setup-2fa', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.qr_code) {
+                    // Show QR code modal
+                    document.getElementById('qr-code').src = data.qr_code;
+                    document.getElementById('secret-key').textContent = data.secret_key;
+                    document.getElementById('setup-2fa-modal').classList.remove('hidden');
+                    document.getElementById('setup-2fa-modal').classList.add('flex');
+                }
+            } catch (error) {
+                console.error('Error setting up 2FA:', error);
+                alert('Failed to setup 2FA. Please try again.');
+            }
+        }
+
+        function close2FAModal() {
+            document.getElementById('setup-2fa-modal').classList.add('hidden');
+            document.getElementById('setup-2fa-modal').classList.remove('flex');
+        }
+
+        async function verify2FA() {
+            const code = document.getElementById('verification-code').value;
+            try {
+                const response = await fetch('/verify-2fa', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('2FA setup successful!');
+                    document.getElementById('setup-2fa-modal').classList.add('hidden');
+                    document.getElementById('setup-2fa-modal').classList.remove('flex');
+                    document.getElementById('setup-2fa-btn').textContent = '2FA Enabled';
+                    document.getElementById('setup-2fa-btn').disabled = true;
+                } else {
+                    alert('Invalid verification code. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error verifying 2FA:', error);
+                alert('Failed to verify 2FA. Please try again.');
+            }
+        }
+
+        // Password Generator Functions
+        function openPasswordGenerator() {
+            document.getElementById('password-generator-modal').classList.remove('hidden');
+            document.getElementById('password-generator-modal').classList.add('flex');
+            generateNewPassword(); // Generate initial password
+        }
+
+        function closePasswordGenerator() {
+            document.getElementById('password-generator-modal').classList.add('hidden');
+            document.getElementById('password-generator-modal').classList.remove('flex');
+        }
+
+        async function generateNewPassword() {
+            const length = document.getElementById('password-length').value;
+            const includeUppercase = document.getElementById('include-uppercase').checked;
+            const includeLowercase = document.getElementById('include-lowercase').checked;
+            const includeNumbers = document.getElementById('include-numbers').checked;
+            const includeSpecial = document.getElementById('include-special').checked;
+
+            try {
+                const response = await fetch('/generate-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        length: parseInt(length),
+                        include_uppercase: includeUppercase,
+                        include_lowercase: includeLowercase,
+                        include_numbers: includeNumbers,
+                        include_special: includeSpecial
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.password) {
+                    document.getElementById('generated-password').value = data.password;
+                    updateStrengthMeter(data.strength);
+                }
+            } catch (error) {
+                console.error('Error generating password:', error);
+                alert('Failed to generate password. Please try again.');
+            }
+        }
+
+        function updateStrengthMeter(strength) {
+            const meter = document.getElementById('strength-meter');
+            const label = document.getElementById('strength-label');
+            
+            meter.style.width = `${strength}%`;
+            
+            if (strength >= 80) {
+                meter.className = 'h-full bg-green-500 transition-all duration-300';
+                label.textContent = 'Strong';
+                label.className = 'text-green-400';
+            } else if (strength >= 60) {
+                meter.className = 'h-full bg-yellow-500 transition-all duration-300';
+                label.textContent = 'Good';
+                label.className = 'text-yellow-400';
+            } else if (strength >= 40) {
+                meter.className = 'h-full bg-orange-500 transition-all duration-300';
+                label.textContent = 'Fair';
+                label.className = 'text-orange-400';
+            } else {
+                meter.className = 'h-full bg-red-500 transition-all duration-300';
+                label.textContent = 'Weak';
+                label.className = 'text-red-400';
+            }
+        }
+
+        function copyGeneratedPassword() {
+            const password = document.getElementById('generated-password').value;
+            if (password) {
+                navigator.clipboard.writeText(password).then(() => {
+                    alert('Password copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy password:', err);
+                    alert('Failed to copy password to clipboard.');
+                });
+            }
+        }
+
+        // Category Filter Functions
+        function filterByCategory(category) {
+            const buttons = document.querySelectorAll('.category-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active', 'bg-slate-700');
+                if (btn.textContent.trim().toLowerCase() === category) {
+                    btn.classList.add('active', 'bg-slate-700');
+                }
+            });
+            
+            const rows = document.querySelectorAll('.password-row');
+            rows.forEach(row => {
+                const rowCategory = row.querySelector('td:nth-child(5)').textContent.trim().toLowerCase();
+                if (category === 'all' || rowCategory === category) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Function to run security audit
+        async function runSecurityAudit() {
+            try {
+                // Show loading state
+                const auditButton = document.querySelector('button[onclick="runSecurityAudit()"]');
+                const originalText = auditButton.innerHTML;
+                auditButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Running Audit...';
+                auditButton.disabled = true;
+                
+                // Make API call to backend
+                const response = await fetch('/security-audit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to run security audit');
+                }
+                
+                const data = await response.json();
+                
+                // Show audit results modal
+                document.getElementById('audit-score').textContent = data.score || 0;
+                
+                const issuesContainer = document.getElementById('audit-issues');
+                issuesContainer.innerHTML = '';
+                
+                if (data.issues && data.issues.length > 0) {
+                    data.issues.forEach(issue => {
+                        issuesContainer.innerHTML += `
+                            <div class="flex items-start gap-2">
+                                <i class="fa fa-exclamation-triangle text-red-400 mt-1"></i>
+                                <div>
+                                    <div class="text-white">${issue.title}</div>
+                                    <div class="text-slate-400 text-sm">${issue.description}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    issuesContainer.innerHTML = `
+                        <div class="text-slate-400 text-center py-2">
+                            No security issues found
+                        </div>
+                    `;
+                }
+                
+                const recommendationsContainer = document.getElementById('audit-recommendations');
+                recommendationsContainer.innerHTML = '';
+                
+                if (data.recommendations && data.recommendations.length > 0) {
+                    data.recommendations.forEach(rec => {
+                        recommendationsContainer.innerHTML += `
+                            <div class="flex items-start gap-2">
+                                <i class="fa fa-lightbulb text-yellow-400 mt-1"></i>
+                                <div>
+                                    <div class="text-white">${rec.title}</div>
+                                    <div class="text-slate-400 text-sm">${rec.description}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    recommendationsContainer.innerHTML = `
+                        <div class="text-slate-400 text-center py-2">
+                            No recommendations at this time
+                        </div>
+                    `;
+                }
+                
+                // Show the modal
+                document.getElementById('security-audit-modal').classList.remove('hidden');
+                document.getElementById('security-audit-modal').classList.add('flex');
+                
+            } catch (error) {
+                console.error('Error running security audit:', error);
+                alert('Failed to run security audit. Please try again.');
+            } finally {
+                // Reset button state
+                const auditButton = document.querySelector('button[onclick="runSecurityAudit()"]');
+                auditButton.innerHTML = '<i class="fa fa-shield"></i> Security Audit';
+                auditButton.disabled = false;
+            }
+        }
+
+        function closeSecurityAudit() {
+            document.getElementById('security-audit-modal').classList.add('hidden');
+            document.getElementById('security-audit-modal').classList.remove('flex');
+        }
+
+        // Browser Extension Functions
+        function openBrowserExtension() {
+            document.getElementById('browser-extension-modal').classList.remove('hidden');
+            document.getElementById('browser-extension-modal').classList.add('flex');
+        }
+
+        function closeBrowserExtension() {
+            document.getElementById('browser-extension-modal').classList.add('hidden');
+            document.getElementById('browser-extension-modal').classList.remove('flex');
+        }
+
+        // Mobile App Functions
+        function openMobileApp() {
+            document.getElementById('mobile-app-modal').classList.remove('hidden');
+            document.getElementById('mobile-app-modal').classList.add('flex');
+        }
+
+        function closeMobileApp() {
+            document.getElementById('mobile-app-modal').classList.add('hidden');
+            document.getElementById('mobile-app-modal').classList.remove('flex');
+        }
+    </script>
+</body>
+
+</html>

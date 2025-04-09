@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VaultGuard</title>
+    <link rel="stylesheet" href="../css/popup.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔒 VaultGuard</h1>
+        <p>Your Secure Autofill Extension</p>
+
+        <label for="site-select">Select Website:</label>
+        <select id="site-select">
+            <option value="" disabled selected>-- Select Site --</option>
+        </select>
+
+        <button id="autofill-btn">🚀 Fetch Credentials</button>
+        <button>
+            <a id="vaultguard" href="http://127.0.0.1:5000" target="_blank">Go To VaultGuard</a>
+        </button>
+        
+        <div id="output" class="credentials-container">
+            <!-- Credentials will be displayed here -->
+        </div>
+    </div>
+    <script src="../js/popup.js"></script>
+</body>
+
+</html>

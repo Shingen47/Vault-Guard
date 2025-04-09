@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <title>VaultGuard - Secure Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+        
+        .modal-content {
+            animation: modalFadeIn 0.3s ease;
+        }
+        
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="gradient-bg flex items-center justify-center min-h-screen text-white">
+    <div class="glass-card p-8 rounded-xl shadow-xl w-96 text-center modal-content">
+        <div class="flex justify-center mb-6">
+            <img src="{{ url_for('static', filename='images/vault.svg') }}" alt="VaultGuard Logo" class="h-16 w-16">
+        </div>
+        
+        <h2 class="text-2xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">VaultGuard Login</h2>
+
+        <div class="mb-6">
+            <label for="password" class="block text-left text-slate-300 font-medium mb-2">Enter Master Password:</label>
+            <div class="relative">
+                <input type="password" id="password" 
+                    class="w-full p-3 border border-slate-700 bg-slate-800 text-white rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" 
+                    placeholder="Enter your password">
+                <button id="toggle-password" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-indigo-400 transition">
+                    <i class="fa fa-eye"></i>
+                </button>
+            </div>
+        </div>
+        
+        <button onclick="authenticate('password')" class="btn-primary w-full p-3 rounded-lg font-medium flex items-center justify-center gap-2">
+            <i class="fa fa-lock"></i> Login with Password
+        </button>
+
+        <div class="flex items-center my-6">
+            <hr class="flex-grow border-slate-700">
+            <span class="mx-3 text-slate-400">OR</span>
+            <hr class="flex-grow border-slate-700">
+        </div>
+
+        <button onclick="authenticate('touchid')" class="btn-secondary w-full p-3 rounded-lg font-medium flex items-center justify-center gap-2">
+            <i class="fa fa-fingerprint"></i> Login with Touch ID
+        </button>
+
+        <p id="message-box" class="mt-6 text-sm"></p>
+    </div>
+    
+    <script>
+        async function authenticate(method) {
+            let password = document.getElementById("password").value;
+
+            let response = await fetch("/authenticate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    method: method, 
+                    password: method === "password" ? password : "" 
+                })
+            });
+
+            let data = await response.json();
+            let messageBox = document.getElementById("message-box");
+            messageBox.innerText = data.message || data.error;
+
+            if (data.message) {
+                messageBox.className = "mt-6 text-sm text-green-400 font-medium";
+                setTimeout(() => {
+                    window.location.href = "/vault"; // Redirect to vault dashboard
+                }, 800);
+            } else {
+                messageBox.className = "mt-6 text-sm text-red-400 font-medium";
+            }
+        }
+        
+        // Toggle password visibility
+        document.getElementById('toggle-password').addEventListener('click', function() {
+            const passwordInput = document.getElementById('password');
+            const icon = this.querySelector('i');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+    </script>
+</body>
+</html> 
+</html> 
