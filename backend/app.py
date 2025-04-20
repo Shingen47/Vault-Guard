@@ -14,9 +14,9 @@ import secrets
 import string
 import re
 import pyotp
-import qrcode
 import io
 import base64
+import qrcode
 from collections import defaultdict
 
 load_dotenv(override=True)
@@ -665,6 +665,47 @@ def security_audit():
     except Exception as e:
         print(f"Error in security audit: {str(e)}")
         return jsonify({'error': 'Failed to perform security audit'}), 500
+
+@app.route("/store-credentials", methods=["POST"])
+def store_credentials():
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        encrypted_password = data.get("password")  # Password is already encrypted by the extension
+        website = data.get("website")
+        
+        if not all([username, encrypted_password, website]):
+            return jsonify({"error": "Missing required fields"}), 400
+            
+        # Check if credentials already exist for this website
+        existing_cred = passwords_collection.find_one({"website": website})
+        
+        if existing_cred:
+            # Update existing credentials
+            passwords_collection.update_one(
+                {"website": website},
+                {
+                    "$set": {
+                        "username": username,
+                        "password": encrypted_password,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+        else:
+            # Insert new credentials
+            passwords_collection.insert_one({
+                "username": username,
+                "password": encrypted_password,
+                "website": website,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            })
+            
+        return jsonify({"message": "Credentials stored successfully"}), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

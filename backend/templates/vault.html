@@ -106,6 +106,12 @@
                 <div class="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
                     <h1 class="text-2xl font-bold text-white mb-2">Welcome to VaultGuard</h1>
                     <p class="text-slate-400">Your secure password manager</p>
+                    <div class="mt-4 flex items-center gap-2">
+                        <span id="2fa-status" class="text-sm text-slate-400">2FA Status: Checking...</span>
+                        <button id="setup-2fa-btn" onclick="setup2FA()" class="text-sm text-indigo-400 hover:text-indigo-300 transition">
+                            <i class="fa fa-shield"></i> Setup 2FA
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Password Health -->
@@ -186,6 +192,10 @@
                     <button onclick="openMobileApp()" class="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
                         <i class="fa fa-mobile"></i>
                         <span>Mobile App</span>
+                    </button>
+                    <button onclick="setup2FA()" class="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fa fa-shield"></i>
+                        <span>Setup 2FA</span>
                     </button>
                 </div>
             </div>
@@ -689,7 +699,30 @@
 
     <script src="../static/script.js"></script>
     <script>
-        // 2FA Functions
+        // Check 2FA status on page load
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch('/check-2fa-status');
+                const data = await response.json();
+                const statusElement = document.getElementById('2fa-status');
+                const setupButton = document.getElementById('setup-2fa-btn');
+                
+                if (data.enabled) {
+                    statusElement.textContent = '2FA Status: Enabled';
+                    statusElement.className = 'text-sm text-green-400';
+                    setupButton.textContent = '2FA Enabled';
+                    setupButton.disabled = true;
+                    setupButton.className = 'text-sm text-green-400';
+                } else {
+                    statusElement.textContent = '2FA Status: Not Enabled';
+                    statusElement.className = 'text-sm text-amber-400';
+                }
+            } catch (error) {
+                console.error('Error checking 2FA status:', error);
+            }
+        });
+
+        // 2FA Setup Functions
         async function setup2FA() {
             try {
                 const response = await fetch('/setup-2fa', {
@@ -732,10 +765,15 @@
                 
                 if (data.success) {
                     alert('2FA setup successful!');
-                    document.getElementById('setup-2fa-modal').classList.add('hidden');
-                    document.getElementById('setup-2fa-modal').classList.remove('flex');
-                    document.getElementById('setup-2fa-btn').textContent = '2FA Enabled';
-                    document.getElementById('setup-2fa-btn').disabled = true;
+                    close2FAModal();
+                    // Update UI to show 2FA is enabled
+                    const statusElement = document.getElementById('2fa-status');
+                    const setupButton = document.getElementById('setup-2fa-btn');
+                    statusElement.textContent = '2FA Status: Enabled';
+                    statusElement.className = 'text-sm text-green-400';
+                    setupButton.textContent = '2FA Enabled';
+                    setupButton.disabled = true;
+                    setupButton.className = 'text-sm text-green-400';
                 } else {
                     alert('Invalid verification code. Please try again.');
                 }
