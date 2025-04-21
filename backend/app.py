@@ -1,9 +1,8 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_cors import CORS
-import touchid
 import os
 from datetime import datetime, timedelta
-from time import time
+import time as time_module
 import hashlib
 import pymongo
 from bson.objectid import ObjectId
@@ -18,12 +17,16 @@ import io
 import base64
 import qrcode
 from collections import defaultdict
+import random
+import subprocess
+import json
+import ctypes
+from ctypes import wintypes
 
 load_dotenv(override=True)
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY")  # Add this line for session support
-# Configure CORS to allow all origins for extension requests
+app.secret_key = os.getenv("SECRET_KEY")
 CORS(app, 
      resources={r"/*": {"origins": "*"}},
      supports_credentials=True,
@@ -39,6 +42,7 @@ notes_collection = db["secure_notes"]
 categories_collection = db["categories"]
 password_history_collection = db["password_history"]
 user_settings_collection = db["user_settings"]
+fake_data_collection = db["fake_passwords"]
 
 # AES Encryption Setup
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -46,36 +50,59 @@ AES_PADDING = os.getenv("AES_PADDING")
 KEY = os.getenv("KEY").encode()
 IV = os.getenv("IV").encode()
 
-# Password strength criteria
-PASSWORD_CRITERIA = {
-    "min_length": 8,
-    "require_uppercase": True,
-    "require_lowercase": True,
-    "require_numbers": True,
-    "require_special": True
-}
-
 def encrypt_password(password):
     cipher = AES.new(KEY, AES.MODE_CBC, IV)
     ciphertext = cipher.encrypt(pad(password.encode('utf-8'), AES.block_size))
     return ciphertext.hex()  # Store as a hex string in MongoDB
 
-
 def decrypt_password(encrypted_password_hex):
     try:
-        encrypted_password = bytes.fromhex(
-            encrypted_password_hex)  # Convert back from hex
+        encrypted_password = bytes.fromhex(encrypted_password_hex)
         decipher = AES.new(KEY, AES.MODE_CBC, IV)
-        plaintext = unpad(decipher.decrypt(
-            encrypted_password), AES.block_size).decode()
+        plaintext = unpad(decipher.decrypt(encrypted_password), AES.block_size).decode()
         return plaintext
     except Exception as e:
         return str(e)
 
+# Common websites for generating fake data
+COMMON_WEBSITES = [
+    "google.com", "facebook.com", "amazon.com", "netflix.com", "twitter.com",
+    "instagram.com", "linkedin.com", "github.com", "microsoft.com", "apple.com"
+]
 
+def generate_fake_credentials(count=100):
+    """Generate realistic-looking fake credentials for honey encryption"""
+    fake_credentials = []
+    for _ in range(count):
+        website = random.choice(COMMON_WEBSITES)
+        username = f"user{random.randint(1000, 9999)}@{random.choice(['gmail.com', 'yahoo.com', 'hotmail.com'])}"
+        # Generate a realistic-looking password
+        password = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation, k=12))
+        encrypted_password = encrypt_password(password)
+        
+        fake_credentials.append({
+            "website": website,
+            "username": username,
+            "password": encrypted_password,
+            "category": random.choice(["Social", "Shopping", "Work", "Personal"]),
+            "createdAt": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+            "updatedAt": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+            "is_fake": True  # Flag to identify fake data
+        })
+    
+    return fake_credentials
+
+def initialize_honey_encryption():
+    """Initialize the honey encryption system with fake data"""
+    if fake_data_collection.count_documents({}) == 0:
+        fake_credentials = generate_fake_credentials()
+        fake_data_collection.insert_many(fake_credentials)
+        print("Honey encryption initialized with fake data")
+
+# Initialize honey encryption on startup
+initialize_honey_encryption()
 
 MASTER_PASSWORD_FILE = "master.txt"
-
 
 def load_master_password():
     if os.path.exists(MASTER_PASSWORD_FILE):
@@ -88,14 +115,90 @@ def load_master_password():
             f.write(master_password)
         return master_password
 
-
 MASTER_PASSWORD = load_master_password()
 
+def verify_windows_pin(pin):
+    try:
+        import ctypes
+        from ctypes import wintypes
+        
+        # Load the Credential UI API
+        credui = ctypes.WinDLL('credui.dll')
+        
+        # Define the CREDUI_INFO structure
+        class CREDUI_INFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.ULONG),
+                ("hwndParent", wintypes.HWND),
+                ("pszMessageText", wintypes.LPCWSTR),
+                ("pszCaptionText", wintypes.LPCWSTR),
+                ("hbmBanner", wintypes.HBITMAP)
+            ]
+        
+        # Define flags
+        CREDUIWIN_GENERIC = 0x1
+        CREDUIWIN_CHECKBOX = 0x2
+        CREDUIWIN_AUTHPACKAGE_ONLY = 0x10
+        CREDUIWIN_IN_CRED_ONLY = 0x20
+        CREDUIWIN_ENUMERATE_CURRENT_USER = 0x200
+        CREDUIWIN_SECURE_PROMPT = 0x1000
+        
+        # Initialize CREDUI_INFO structure
+        ui_info = CREDUI_INFO()
+        ui_info.cbSize = ctypes.sizeof(CREDUI_INFO)
+        ui_info.hwndParent = None
+        ui_info.pszMessageText = "Please verify your identity"
+        ui_info.pszCaptionText = "VaultGuard Security"
+        ui_info.hbmBanner = None
+        
+        # Prepare buffers for username and password
+        username = ctypes.create_unicode_buffer(100)
+        password = ctypes.create_unicode_buffer(100)
+        save = wintypes.BOOL()
+        
+        # Call CredUIPromptForCredentialsW
+        result = credui.CredUIPromptForCredentialsW(
+            ctypes.byref(ui_info),
+            "WindowsSecurity",
+            None,
+            0,
+            username,
+            100,
+            password,
+            100,
+            ctypes.byref(save),
+            CREDUIWIN_GENERIC | CREDUIWIN_SECURE_PROMPT | CREDUIWIN_ENUMERATE_CURRENT_USER
+        )
+        
+        if result == 0:  # NO_ERROR
+            # Clean up
+            credui.CredUIConfirmCredentialsW("WindowsSecurity", True)
+            print("Windows PIN authentication successful")
+            return True
+        else:
+            print(f"Windows PIN authentication failed with error code: {result}")
+            return False
+            
+    except Exception as e:
+        print(f"Windows PIN verification error: {str(e)}")
+        return False
+
+def verify_touchid():
+    try:
+        import touchid
+        # The authenticate() function only takes 0 or 1 argument
+        result = touchid.authenticate("Verify your identity to access VaultGuard")
+        return result
+    except ImportError:
+        print("TouchID verification error: TouchID is not available on this system")
+        return False
+    except Exception as e:
+        print(f"TouchID verification error: {str(e)}")
+        return False
 
 @app.route("/")
 def index():
     return render_template("index.html")
-
 
 @app.route("/vault")
 def vault():
@@ -110,13 +213,12 @@ def vault():
     else:
         return redirect(url_for("index"))
 
-
 @app.route("/authenticate", methods=["POST"])
 def authenticate():
     data = request.json
     method = data.get("method")
 
-    if (method == "password"):
+    if method == "password":
         entered_password = hashlib.sha256(
             data.get("password", "").encode()).hexdigest()
         if entered_password == MASTER_PASSWORD:
@@ -127,17 +229,35 @@ def authenticate():
             return response
         return jsonify({"error": "Incorrect Master Password"}), 401
 
-    elif (method == "touchid"):
+    elif method == "windows_pin":
         try:
-            touchid.authenticate()
-            response = make_response(
-                jsonify({"message": "Touch ID authenticated!"}), 200)
-            response.set_cookie(
-                "session_token", MASTER_PASSWORD, httponly=True, secure=True)
-            return response
+            # Trigger Windows PIN prompt
+            if verify_windows_pin(None):
+                response = make_response(
+                    jsonify({"message": "Windows PIN authenticated!"}), 200)
+                response.set_cookie(
+                    "session_token", MASTER_PASSWORD, httponly=True, secure=True)
+                return response
+            return jsonify({"error": "Windows PIN authentication failed"}), 401
         except Exception as e:
-            return jsonify({"error": "Touch ID authentication failed", "details": str(e)}), 401
+            print(f"Windows PIN authentication error: {str(e)}")
+            return jsonify({"error": "Authentication failed"}), 401
 
+    elif method == "touchid":
+        try:
+            # Use TouchID on macOS
+            if verify_touchid():
+                response = make_response(
+                    jsonify({"message": "TouchID authentication successful!"}), 200)
+                response.set_cookie(
+                    "session_token", MASTER_PASSWORD, httponly=True, secure=True)
+                return response
+            return jsonify({"error": "TouchID authentication failed"}), 401
+        except Exception as e:
+            print(f"TouchID authentication error: {str(e)}")
+            return jsonify({"error": "Authentication failed"}), 401
+
+    return jsonify({"error": "Invalid authentication method"}), 400
 
 @app.route("/logout")
 def logout():
@@ -145,7 +265,6 @@ def logout():
     # Explicitly setting path and expiry
     response.set_cookie("session_token", "", expires=0, path="/")
     return response
-
 
 @app.route("/decrypt-password")
 def decrypt_stored_password():
@@ -156,15 +275,21 @@ def decrypt_stored_password():
     except Exception as e:
         return jsonify({"error": "Failed to decrypt password", "details": str(e)}), 500
 
-
 @app.route("/get-passwords", methods=['GET'])
 def get_passwords():
-    passwords = list(passwords_collection.find({}, {"_id": 0})
-                     )  # Exclude MongoDB's `_id` field
+    session_token = request.cookies.get("session_token")
+    if session_token != MASTER_PASSWORD:
+        # If not authenticated, return fake data
+        fake_passwords = list(fake_data_collection.find({}, {"_id": 0}))
+        for p in fake_passwords:
+            p["password"] = decrypt_password(p["password"])
+        return jsonify({"passwords": fake_passwords})
+    
+    # If authenticated, return real data
+    passwords = list(passwords_collection.find({}, {"_id": 0}))
     for p in passwords:
         p["password"] = decrypt_password(p["password"])
     return jsonify({"passwords": passwords})
-
 
 @app.route("/get-credentials-extension", methods=["POST"])
 def get_credentials_extension():
@@ -179,39 +304,38 @@ def get_credentials_extension():
             print("Extension request - No website provided in request")
             return jsonify({"error": "Website is required"}), 400
 
-        # Normalize the website name (remove "www." and protocol)
+        # Normalize the website name
         normalized_website = website.replace("www.", "").replace("https://", "").replace("http://", "")
         print(f"Extension request - Normalized website: {normalized_website}")
 
-        # Query the database for credentials matching the normalized website
-        print(f"Extension request - Querying MongoDB for website: {normalized_website}")
-        
-        # Try exact match first
+        # Check authentication
+        session_token = request.cookies.get("session_token")
+        if session_token != MASTER_PASSWORD:
+            # If not authenticated, return fake data
+            fake_credentials = list(fake_data_collection.find(
+                {"website": normalized_website}, {"_id": 0}))
+            if not fake_credentials:
+                fake_credentials = list(fake_data_collection.find(
+                    {"website": {"$regex": f".*{normalized_website}.*"}}, {"_id": 0}))
+            
+            for p in fake_credentials:
+                p["password"] = decrypt_password(p["password"])
+            return jsonify({"credentials": fake_credentials})
+
+        # If authenticated, return real data
         credentials = list(passwords_collection.find({"website": normalized_website}, {"_id": 0}))
-        
-        # If no exact match, try partial match
         if not credentials:
-            print(f"Extension request - No exact match, trying partial match")
-            credentials = list(passwords_collection.find({"website": {"$regex": f".*{normalized_website}.*"}}, {"_id": 0}))
+            credentials = list(passwords_collection.find(
+                {"website": {"$regex": f".*{normalized_website}.*"}}, {"_id": 0}))
         
-        print(f"Extension request - Raw MongoDB query result: {credentials}")
-        
-        # Decrypt passwords
         for p in credentials:
             p["password"] = decrypt_password(p["password"])
             
-        print(f"Extension request - Found {len(credentials)} credentials")
-        if credentials:
-            print(f"Extension request - Returning credentials for {normalized_website}")
-            return jsonify({"credentials": credentials}), 200
-        else:
-            print(f"Extension request - No credentials found for {normalized_website}")
-            return jsonify({"error": "No credentials found for the specified website"}), 404
-            
+        return jsonify({"credentials": credentials})
+        
     except Exception as e:
         print(f"Extension request - Error: {str(e)}")
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
-
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/retrieve-password")
 def retrieve_password():
@@ -224,7 +348,6 @@ def retrieve_password():
             return jsonify({"password": decrypt_password(entry['password'])})
         except Exception as e:
             return jsonify({"error": "Website not found"}), 404
-
 
 @app.route("/add-password", methods=["POST"])
 def add_password():
@@ -254,7 +377,6 @@ def add_password():
 
     return jsonify({"message": "Password saved successfully!"})
 
-
 @app.route("/edit-password", methods=["POST"])
 def edit_password():
     data = request.json
@@ -283,7 +405,6 @@ def edit_password():
     else:
         return jsonify({"error": "Website not found!"}), 404
 
-
 @app.route("/delete-password", methods=["POST"])
 def delete_password():
     data = request.json
@@ -295,7 +416,6 @@ def delete_password():
         return jsonify({"message": "Password deleted successfully!"})
     else:
         return jsonify({"error": "Website not found!"}), 404
-
 
 # New functions for password generation and strength checking
 def generate_password(length=16, include_uppercase=True, include_lowercase=True, include_numbers=True, include_special=True):
@@ -706,6 +826,45 @@ def store_credentials():
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+def refresh_fake_data():
+    """Periodically refresh fake data to make it more convincing"""
+    try:
+        # Remove old fake data
+        fake_data_collection.delete_many({})
+        
+        # Generate new fake data
+        fake_credentials = generate_fake_credentials()
+        fake_data_collection.insert_many(fake_credentials)
+        
+        print("Fake data refreshed successfully")
+        return True
+    except Exception as e:
+        print(f"Error refreshing fake data: {str(e)}")
+        return False
+
+@app.route("/refresh-fake-data", methods=["POST"])
+def refresh_fake_data_route():
+    """Admin route to refresh fake data"""
+    session_token = request.cookies.get("session_token")
+    if session_token != MASTER_PASSWORD:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    if refresh_fake_data():
+        return jsonify({"message": "Fake data refreshed successfully"})
+    else:
+        return jsonify({"error": "Failed to refresh fake data"}), 500
+
+# Schedule fake data refresh every 24 hours
+def schedule_fake_data_refresh():
+    while True:
+        time_module.sleep(24 * 60 * 60)  # Sleep for 24 hours
+        refresh_fake_data()
+
+# Start the refresh scheduler in a separate thread
+import threading
+refresh_thread = threading.Thread(target=schedule_fake_data_refresh, daemon=True)
+refresh_thread.start()
 
 if __name__ == "__main__":
     app.run(debug=True)
